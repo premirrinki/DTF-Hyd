@@ -88,7 +88,8 @@ class AppController {
 
         // Bind place checkout button inside Cart Drawer -> Redirects directly to checkout page!
         document.addEventListener('click', (e) => {
-            if (e.target && e.target.classList.contains('btn-drawer-checkout')) {
+            const checkoutBtn = e.target.closest('.btn-drawer-checkout');
+            if (checkoutBtn) {
                 const cart = window.Store.getCart();
                 if (cart.length === 0) {
                     this.showToast("Your cart is empty. Add products first!", "warning");
@@ -503,15 +504,26 @@ class AppController {
                         <div class="profile-info">
                             <h3>${currentUser.name}</h3>
                             <p>${currentUser.email}</p>
-                            <p style="font-size: 0.75rem;">Phone: ${currentUser.phone}</p>
+                            ${currentUser.isAdmin ? '<span class="badge-status delivered" style="font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">STORE OWNER</span>' : `<p style="font-size: 0.75rem;">Phone: ${currentUser.phone}</p>`}
                         </div>
                     </div>
                     
                     <div class="profile-body">
-                        <h4>My Order History</h4>
-                        <div class="order-history-list">
-                            ${orderCards}
-                        </div>
+                        ${currentUser.isAdmin ? `
+                            <div style="text-align: center; padding: 30px 10px;">
+                                <i class="fas fa-user-shield" style="font-size: 3rem; color: var(--accent-color); margin-bottom: 12px; display: block;"></i>
+                                <h4 style="font-family: var(--font-main);">Owner Access Granted</h4>
+                                <p style="font-size:0.8rem; color:#64748b; margin-top:5px;">Manage checkout logs and inventory catalog.</p>
+                                <a href="admin.html" class="btn-auth-submit" style="display: inline-block; margin-top: 20px; text-decoration: none; text-align: center; width: 100%;">
+                                    Open Admin Panel <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                        ` : `
+                            <h4>My Order History</h4>
+                            <div class="order-history-list">
+                                ${orderCards}
+                            </div>
+                        `}
                     </div>
                     
                     <button class="btn-logout" onclick="window.Store.logout()">
@@ -520,16 +532,17 @@ class AppController {
                 </div>
             `;
         } else {
-            // Render Login & Registration Tabs
+            // Render User Login, Admin Login & Registration Tabs
             container.innerHTML = `
                 <button class="modal-close" id="close-auth"><i class="fas fa-times"></i></button>
-                <div class="auth-tabs">
-                    <button class="auth-tab active" data-target="login-form-panel">Login</button>
-                    <button class="auth-tab" data-target="register-form-panel">Sign Up</button>
+                <div class="auth-tabs" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+                    <button class="auth-tab active" style="font-size:0.75rem; padding: 8px 4px;" data-target="login-form-panel">User Login</button>
+                    <button class="auth-tab" style="font-size:0.75rem; padding: 8px 4px;" data-target="admin-login-form-panel">Admin Login</button>
+                    <button class="auth-tab" style="font-size:0.75rem; padding: 8px 4px;" data-target="register-form-panel">Sign Up</button>
                 </div>
                 
                 <div class="auth-forms-container">
-                    <!-- Login Panel -->
+                    <!-- User Login Panel -->
                     <form id="login-form-panel" class="auth-form-panel active" onsubmit="window.App.handleLogin(event)">
                         <div class="form-group">
                             <label>Email Address</label>
@@ -540,6 +553,19 @@ class AppController {
                             <input type="password" id="login-password" required placeholder="••••••••">
                         </div>
                         <button type="submit" class="btn-auth-submit">Sign In</button>
+                    </form>
+
+                    <!-- Admin Login Panel -->
+                    <form id="admin-login-form-panel" class="auth-form-panel" onsubmit="window.App.handleAdminLogin(event)">
+                        <div class="form-group">
+                            <label>Admin/Owner Email</label>
+                            <input type="email" id="admin-login-email" required placeholder="admin@dtfhyderabad.in">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin/Owner Password</label>
+                            <input type="password" id="admin-login-password" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-auth-submit" style="background: var(--accent-color);">Authenticate as Owner <i class="fas fa-shield-alt"></i></button>
                     </form>
                     
                     <!-- Signup Panel -->
@@ -576,12 +602,32 @@ class AppController {
 
     handleLogin(e) {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
+        const email = document.getElementById('login-email').value.trim();
         const pass = document.getElementById('login-password').value;
 
         try {
-            window.Store.login(email, pass);
+            const user = window.Store.login(email, pass, false);
             this.showToast("Logged in successfully!", "success");
+            if (user.isAdmin) {
+                // If owner logged in using user login, redirect them too
+                setTimeout(() => { window.location.href = 'admin.html'; }, 1000);
+            }
+        } catch (err) {
+            this.showToast(err.message, "error");
+        }
+    }
+
+    handleAdminLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('admin-login-email').value.trim();
+        const pass = document.getElementById('admin-login-password').value;
+
+        try {
+            window.Store.login(email, pass, true);
+            this.showToast("Authenticated as Owner! Redirecting...", "success");
+            setTimeout(() => {
+                window.location.href = 'admin.html';
+            }, 1000);
         } catch (err) {
             this.showToast(err.message, "error");
         }
@@ -590,7 +636,7 @@ class AppController {
     handleRegister(e) {
         e.preventDefault();
         const name = document.getElementById('reg-name').value;
-        const email = document.getElementById('reg-email').value;
+        const email = document.getElementById('reg-email').value.trim();
         const phone = document.getElementById('reg-phone').value;
         const pass = document.getElementById('reg-password').value;
 
@@ -651,6 +697,16 @@ class AppController {
         } else {
             userBtn.innerHTML = `<i class="fas fa-user"></i>`;
         }
+
+        // Toggle visibility of admin-only elements
+        const adminItems = document.querySelectorAll('.admin-only');
+        adminItems.forEach(item => {
+            if (currentUser && currentUser.isAdmin) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
 
     // -------------------------------------------------------------

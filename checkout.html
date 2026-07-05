@@ -114,6 +114,7 @@
             if (!container) return;
 
             const user = window.Store.getCurrentUser();
+            const isAdmin = user && user.isAdmin;
             const totals = window.Store.getCartTotals();
             const config = window.StoreConfig || { enableCOD: true, enableOnline: true };
 
@@ -241,7 +242,8 @@
                             Place Order Securely <i class="fas fa-lock" style="margin-left: 8px;"></i>
                         </button>
 
-                        <button class="developer-config-trigger" onclick="window.CheckoutPage.toggleDeveloperSettings()" style="display: block; margin: 15px auto 0 auto;">
+                        ${isAdmin ? `
+                        <button type="button" class="developer-config-trigger" onclick="window.CheckoutPage.toggleDeveloperSettings()" style="display: block; margin: 15px auto 0 auto;">
                             <i class="fas fa-cog"></i> Developer payment options
                         </button>
                         
@@ -253,6 +255,7 @@
                                 Save Key settings
                             </button>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;

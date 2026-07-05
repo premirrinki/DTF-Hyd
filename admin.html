@@ -200,6 +200,32 @@
 </head>
 <body>
 
+<div id="admin-gate-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f1f5f9; z-index: 10000; align-items: center; justify-content: center; font-family: var(--font-main); padding: 20px;">
+    <div class="admin-card" style="width: 100%; max-width: 400px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 15px;">
+        <div style="text-align: center; margin-bottom: 10px;">
+            <span style="font-size: 1.8rem; font-weight: 700; color: var(--primary-color); font-family: var(--font-main);">DTF <span style="color: var(--accent-color);">Hyderabad</span></span>
+            <h3 style="margin-top: 15px; color: var(--primary-color); font-family: var(--font-main);">Owner Access Gate</h3>
+            <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Log in to access merchant dashboard data panels</p>
+        </div>
+        <form id="gate-login-form" onsubmit="window.AdminDesk.handleGateLogin(event)" style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="form-group">
+                <label>Admin/Owner Email</label>
+                <input type="email" id="gate-email" required placeholder="admin@dtfhyderabad.in" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-size: 0.85rem;">
+            </div>
+            <div class="form-group">
+                <label>Admin/Owner Password</label>
+                <input type="password" id="gate-password" required placeholder="••••••••" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; font-size: 0.85rem;">
+            </div>
+            <button type="submit" class="btn-auth-submit" style="width: 100%; margin: 10px 0 0 0; padding: 12px; font-size: 0.9rem;">
+                Verify Credentials <i class="fas fa-lock-open" style="margin-left: 8px;"></i>
+            </button>
+        </form>
+        <div style="text-align: center; margin-top: 10px;">
+            <a href="index.html" style="font-size: 0.8rem; color: #64748b; text-decoration: underline;">Return to Homepage</a>
+        </div>
+    </div>
+</div>
+
 <header class="main-header" style="position: sticky; top: 0; background: #ffffff;">
     <div class="header-container">
         <a href="index.html" class="logo">DTF<span>Hyd</span></a>
@@ -279,6 +305,26 @@
                         </tr>
                     </thead>
                     <tbody id="orders-table-body">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Left Column Card 2: Registered User Directory -->
+        <div class="admin-card">
+            <h2 class="admin-card-title"><span><i class="fas fa-users"></i> Registered Buyer Directory</span></h2>
+            <div class="table-responsive">
+                <table class="admin-table" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Email Address</th>
+                            <th>Contact Phone</th>
+                            <th>Registration Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
                         <!-- Filled dynamically -->
                     </tbody>
                 </table>
@@ -443,12 +489,21 @@ CREATE TABLE orders (
         constructor() {
             this.ordersTableBody = null;
             this.catalogProductsTableBody = null;
+            this.usersTableBody = null;
             this.activeSearchQuery = "";
         }
 
         async init() {
+            const currentUser = window.Store.getCurrentUser();
+            if (!currentUser || !currentUser.isAdmin) {
+                document.getElementById('admin-gate-overlay').style.display = 'flex';
+                return;
+            }
+            document.getElementById('admin-gate-overlay').style.display = 'none';
+
             this.ordersTableBody = document.getElementById('orders-table-body');
             this.catalogProductsTableBody = document.getElementById('catalog-products-table-body');
+            this.usersTableBody = document.getElementById('users-table-body');
             
             // Render database indicators
             this.renderDbIndicator();
@@ -462,6 +517,46 @@ CREATE TABLE orders (
             this.renderStats();
             this.renderOrdersTable();
             this.renderCatalogProductsTable();
+            this.renderUsersTable();
+        }
+
+        handleGateLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('gate-email').value.trim();
+            const pass = document.getElementById('gate-password').value;
+
+            try {
+                window.Store.login(email, pass, true);
+                document.getElementById('admin-gate-overlay').style.display = 'none';
+                this.init();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        renderUsersTable() {
+            if (!this.usersTableBody) return;
+            const users = window.Store.getRegisteredUsers();
+
+            if (users.length === 0) {
+                this.usersTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px 0;">
+                            No registered customer profiles found.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            this.usersTableBody.innerHTML = users.map(u => `
+                <tr>
+                    <td><strong>${u.name}</strong></td>
+                    <td>${u.email}</td>
+                    <td>${u.phone || 'N/A'}</td>
+                    <td><small style="color: #64748b;">${new Date(u.registeredAt || Date.now()).toLocaleDateString()}</small></td>
+                </tr>
+            `).join('');
         }
 
         renderDbIndicator() {

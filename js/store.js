@@ -77,18 +77,39 @@ class DataStore {
         return this.login(email, password);
     }
 
-    login(email, password) {
-        const users = this.getRegisteredUsers();
-        const user = users.find(u => u.email === email && u.password === password);
-        if (!user) {
-            throw new Error("Invalid email or password.");
+    login(email, password, isAdmin = false) {
+        const config = window.StoreConfig || {};
+        const ownerCreds = config.ownerCredentials || { email: "admin@dtfhyderabad.in", password: "admin" };
+
+        if (isAdmin) {
+            if (email === ownerCreds.email && password === ownerCreds.password) {
+                const sessionUser = { name: "Store Owner", email: ownerCreds.email, phone: "", isAdmin: true };
+                localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+                this.triggerEvent('authUpdated');
+                return sessionUser;
+            } else {
+                throw new Error("Invalid Admin/Owner credentials.");
+            }
+        } else {
+            if (email === ownerCreds.email && password === ownerCreds.password) {
+                const sessionUser = { name: "Store Owner", email: ownerCreds.email, phone: "", isAdmin: true };
+                localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+                this.triggerEvent('authUpdated');
+                return sessionUser;
+            }
+
+            const users = this.getRegisteredUsers();
+            const user = users.find(u => u.email === email && u.password === password);
+            if (!user) {
+                throw new Error("Invalid email or password.");
+            }
+            
+            const sessionUser = { name: user.name, email: user.email, phone: user.phone, isAdmin: false };
+            localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+            
+            this.triggerEvent('authUpdated');
+            return sessionUser;
         }
-        
-        const sessionUser = { name: user.name, email: user.email, phone: user.phone };
-        localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-        
-        this.triggerEvent('authUpdated');
-        return sessionUser;
     }
 
     logout() {

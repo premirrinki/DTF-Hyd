@@ -287,11 +287,6 @@ class CheckoutManager {
         
         // Assign this to window variable so the receipt page can bind it to a button click
         window.activeWhatsAppOrderLink = url;
-
-        // Auto open whatsapp in new tab for user comfort
-        setTimeout(() => {
-            window.open(url, '_blank');
-        }, 1000);
     }
 
     // Trigger EmailJS email alert using public keys

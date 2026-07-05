@@ -1,16 +1,28 @@
-# DTF Hyderabad - Merchant Administration Desk & SQL database Guide
+# DTF Hyderabad - Merchant Administration Desk & SQL Database Guide
 
 Welcome to your DTF Hyderabad merchant workspace control center guide! Here is how to manage the new updates.
 
 All dynamic configurations are managed inside:
 👉 **[js/config.js](file:///d:/digital%20marketing/AG_AI/DTF_Hyd/js/config.js)**
 
-To view orders, search catalog, toggles visibilities, and connect database, open the dashboard in your web browser:
+To view orders, search catalog, toggle visibility, and connect your database, open the dashboard in your web browser:
 👉 **[admin.html](file:///d:/digital%20marketing/AG_AI/DTF_Hyd/admin.html)**
 
 ---
 
-## 1. Pushing Orders to WhatsApp & Exporting
+## 1. Owner Access Gate & Credentials
+
+The Admin Dashboard is now secured behind an **Owner Access Gate**:
+- **Authentication Guard**: Visiting `admin.html` without owner credentials displays an authentication screen blocking data access.
+- **Login Tabs**: The user icon on the homepage header opens a modal with three tabs: **User Login**, **Admin Login**, and **Sign Up**. Admin login validates credentials and redirects the owner to the dashboard.
+- **Admin-Only Elements**: Link references to "Admin Dashboard" in the header menu and footer remain hidden and only display once the Admin/Owner is logged in.
+- **Owner Credentials (in `js/config.js`)**:
+  - **Email**: `admin@dtfhyderabad.in`
+  - **Password**: `admin`
+
+---
+
+## 2. Pushing Orders to WhatsApp & Exporting
 
 In the **Checkout Orders** table inside `admin.html`, you have two premium dispatch utilities:
 - **Push to WhatsApp**: Click the green **Push** button next to any order. It compiles client details, shipping address, order items list, subtotals, and GST calculations into a clean message, and triggers a direct WhatsApp chat prefilled with this notification!
@@ -19,7 +31,17 @@ In the **Checkout Orders** table inside `admin.html`, you have two premium dispa
 
 ---
 
-## 2. Automatic Discount Calculations
+## 3. Registered Buyer Directory
+
+The dashboard now lists all registered client profiles in the **Registered Buyer Directory** table. The owner can inspect:
+- Client full names.
+- Contact email addresses.
+- WhatsApp contact numbers.
+- Exact account registration dates.
+
+---
+
+## 4. Automatic Discount Calculations
 
 When injecting new products on `admin.html`:
 - Enter the **Selling Price (₹)** and the **MRP Retail Price (₹)**.
@@ -28,7 +50,7 @@ When injecting new products on `admin.html`:
 
 ---
 
-## 3. Product Catalog Visibility & Search
+## 5. Product Catalog Visibility & Search
 
 You can search and hide standard or custom products dynamically inside the **Catalog & Inventory** panel on `admin.html`:
 - **Search by Product Name**: Type in the search input box to instantly filter the list of products by name.
@@ -37,7 +59,7 @@ You can search and hide standard or custom products dynamically inside the **Cat
 
 ---
 
-## 4. SQL Database Syncing (Supabase PostgreSQL)
+## 6. SQL Database Syncing (Supabase PostgreSQL)
 
 For bulk orders and enterprise scalability, you can integrate your shop with a serverless PostgreSQL SQL Database on Supabase:
 1. Log into your [Supabase Console](https://supabase.com).
