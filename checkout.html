@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Checkout | DTF Hyderabad</title>
+    
+    <!-- External Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Style Sheets -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+    
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+    <style>
+        .checkout-page-wrapper {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 24px;
+        }
+        .checkout-page-title {
+            font-family: var(--font-main);
+            font-size: 2rem;
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .checkout-page-title a {
+            color: #64748b;
+            font-size: 1.2rem;
+            transition: var(--transition-smooth);
+        }
+        .checkout-page-title a:hover {
+            color: var(--primary-color);
+        }
+        .checkout-card-layout {
+            background: #ffffff;
+            border-radius: 24px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body style="background-color: #f8fafc;">
+
+<!-- Custom Header for Checkout page -->
+<header class="main-header" style="position: sticky; top: 0; background: #ffffff;">
+    <div class="header-container">
+        <a href="index.html" class="logo">DTF<span>Hyd</span></a>
+        <a href="index.html" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 8px;">
+            <i class="fas fa-arrow-left"></i> Return to Shop
+        </a>
+    </div>
+</header>
+
+<main class="checkout-page-wrapper">
+    <div class="checkout-page-title">
+        <a href="index.html" aria-label="Back"><i class="fas fa-arrow-left"></i></a>
+        <span>Secure Checkout</span>
+    </div>
+
+    <div class="checkout-card-layout" id="checkout-modal">
+        <!-- Renders side-by-side shipping and checkout info inside the modal structure -->
+        <div class="modal-container" id="checkout-modal-container" style="max-width: 100%; box-shadow: none; border: none; border-radius: 0; transform: none; transition: none;">
+            <!-- Rendered dynamically by checkout script -->
+        </div>
+    </div>
+</main>
+
+<!-- Cart and Toast overlays to keep script components operational -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Mobile Sticky Dock structure deleted or kept hidden -->
+<div style="padding-bottom: 40px;"></div>
+
+<!-- Core Store Modules -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/checkout.js"></script>
+
+<!-- Checkout Page Orchestrator Script -->
+<script>
+    class CheckoutPageController {
+        constructor() {
+            this.toastContainer = null;
+        }
+
+        init() {
+            this.toastContainer = document.getElementById('toast-container');
+            
+            // Check if cart has items. If empty, warn and redirect
+            const cart = window.Store.getCart();
+            if (cart.length === 0) {
+                alert("Your cart is empty! Redirecting you to the home page.");
+                window.location.href = 'index.html';
+                return;
+            }
+
+            this.renderCheckoutPage();
+        }
+
+        renderCheckoutPage() {
+            const container = document.getElementById('checkout-modal-container');
+            if (!container) return;
+
+            const user = window.Store.getCurrentUser();
+            const totals = window.Store.getCartTotals();
+            const config = window.StoreConfig || { enableCOD: true, enableOnline: true };
+
+            let itemsSummaryHtml = totals.items.map(item => {
+                const sizeLabel = item.size === 'a3' ? 'A3 Size' : (item.size === 'a4' ? 'A4 Size' : 'Per Meter');
+                return `
+                    <div class="mini-item" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; font-size: 0.85rem;">
+                        <div>
+                            <strong style="color: var(--primary-color);">${item.title}</strong>
+                            <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Size: ${sizeLabel} | Qty: ${item.quantity}</div>
+                        </div>
+                        <span style="font-weight: 600; color: var(--primary-color);">₹${item.total}</span>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="checkout-grid" style="grid-template-columns: 1.2fr 0.8fr; padding: 40px; gap: 40px;">
+                    <!-- Left Column: Billing Details Form -->
+                    <form id="checkout-shipping-form" onsubmit="window.CheckoutPage.handlePlaceOrder(event)">
+                        <div class="checkout-form" style="gap: 20px;">
+                            <h3 style="font-family: var(--font-main); color: var(--primary-color); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                <i class="fas fa-truck" style="color: var(--accent-color); margin-right: 8px;"></i> Shipping Details
+                            </h3>
+                            
+                            <div class="form-group">
+                                <label>Consignee Name</label>
+                                <input type="text" id="chk-name" required value="${user ? user.name : ''}" placeholder="Full Name of recipient">
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px;">
+                                <div class="form-group">
+                                    <label>Delivery Email (Receives invoice PDF)</label>
+                                    <input type="email" id="chk-email" required value="${user ? user.email : ''}" placeholder="name@email.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mobile Number (For WhatsApp tracking)</label>
+                                    <input type="tel" id="chk-phone" required value="${user ? user.phone : ''}" placeholder="10 Digit mobile number">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Detailed Shipping Address</label>
+                                <textarea id="chk-address" required rows="3" placeholder="H.No, Street name, Landmark, Area"></textarea>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="form-group">
+                                    <label>City</label>
+                                    <input type="text" id="chk-city" required placeholder="e.g. Hyderabad">
+                                </div>
+                                <div class="form-group">
+                                    <label>State</label>
+                                    <input type="text" id="chk-state" required placeholder="e.g. Telangana">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>PIN Code (Delivery Area Code)</label>
+                                <input type="text" id="chk-pin" required pattern="[0-9]{6}" placeholder="6 digit code">
+                            </div>
+
+                            <h3 style="font-family: var(--font-main); color: var(--primary-color); font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-top: 15px;">
+                                <i class="fas fa-credit-card" style="color: var(--accent-color); margin-right: 8px;"></i> Payment Options
+                            </h3>
+                            
+                            <div class="checkout-payment-options">
+                                ${config.enableOnline ? `
+                                <div class="payment-option-card active">
+                                    <input type="radio" id="pay-online" name="payment-method" value="online" checked>
+                                    <i class="fas fa-credit-card"></i>
+                                    <div class="payment-option-info">
+                                        <span>Pay Online Securely</span>
+                                        <p>Pay with UPI, Cards, NetBanking via Razorpay Portal</p>
+                                    </div>
+                                </div>` : ''}
+                                
+                                ${config.enableCOD ? `
+                                <div class="payment-option-card ${!config.enableOnline ? 'active' : ''}">
+                                    <input type="radio" id="pay-cod" name="payment-method" value="cod" ${!config.enableOnline ? 'checked' : ''}>
+                                    <i class="fas fa-hand-holding-usd"></i>
+                                    <div class="payment-option-info">
+                                        <span>Cash on Delivery (COD)</span>
+                                        <p>Pay with cash on delivery (adds express packaging validation)</p>
+                                    </div>
+                                </div>` : ''}
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Right Column: Cart Item Summary and Final Calculations -->
+                    <div class="checkout-summary-side" style="padding: 24px; background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0;">
+                        <span class="checkout-summary-title" style="font-size: 1.1rem; border-bottom: 2px solid var(--primary-color); padding-bottom: 12px; margin-bottom: 15px;">Order Summary</span>
+                        
+                        <div class="checkout-items-mini" style="max-height: 250px;">
+                            ${itemsSummaryHtml}
+                        </div>
+                        
+                        <div class="checkout-summary-breakdown" style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                                <span>Subtotal</span>
+                                <span>₹${totals.subtotal}</span>
+                            </div>
+                            ${totals.discount > 0 ? `
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #22c55e; margin-bottom: 8px;">
+                                <span>Bundle Discount</span>
+                                <span>-₹${totals.discount}</span>
+                            </div>` : ''}
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                                <span>GST Tax (18%)</span>
+                                <span>₹${totals.tax}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                                <span>Shipping Fee</span>
+                                <span>${totals.shipping === 0 ? 'FREE' : '₹' + totals.shipping}</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-color); font-size: 1.25rem; margin: 15px 0;">
+                            <span>Grand Total:</span>
+                            <span style="color: #b45309;">₹${totals.total}</span>
+                        </div>
+
+                        <button type="submit" form="checkout-shipping-form" class="btn-place-order" style="padding: 16px; font-size: 1.05rem; border-radius: 12px;">
+                            Place Order Securely <i class="fas fa-lock" style="margin-left: 8px;"></i>
+                        </button>
+
+                        <button class="developer-config-trigger" onclick="window.CheckoutPage.toggleDeveloperSettings()" style="display: block; margin: 15px auto 0 auto;">
+                            <i class="fas fa-cog"></i> Developer payment options
+                        </button>
+                        
+                        <div id="dev-settings-box" class="developer-settings-box" style="margin-top: 12px;">
+                            <label style="font-size: 0.75rem; font-weight: 600; color: #475569;">Custom Razorpay Key ID</label>
+                            <input type="text" id="dev-rzp-key" style="padding: 8px; font-size: 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; margin: 6px 0;" 
+                                   value="${config.razorpayKeyId || ''}" placeholder="rzp_test_...">
+                            <button type="button" class="btn-auth-submit" style="padding: 8px; font-size: 0.75rem; margin: 0; width: 100%;" onclick="window.CheckoutPage.saveDeveloperRzpKey()">
+                                Save Key settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        toggleDeveloperSettings() {
+            const box = document.getElementById('dev-settings-box');
+            if (box) box.classList.toggle('active');
+        }
+
+        saveDeveloperRzpKey() {
+            const keyVal = document.getElementById('dev-rzp-key').value;
+            const config = window.StoreConfig || {};
+            config.razorpayKeyId = keyVal;
+            this.showToast("Developer Razorpay configuration saved locally!", "info");
+            this.toggleDeveloperSettings();
+        }
+
+        async handlePlaceOrder(e) {
+            e.preventDefault();
+            
+            const shippingDetails = {
+                name: document.getElementById('chk-name').value,
+                email: document.getElementById('chk-email').value,
+                phone: document.getElementById('chk-phone').value,
+                address: document.getElementById('chk-address').value,
+                city: document.getElementById('chk-city').value,
+                state: document.getElementById('chk-state').value,
+                pin: document.getElementById('chk-pin').value
+            };
+
+            const placeBtn = document.querySelector('.btn-place-order');
+            if (placeBtn) {
+                placeBtn.disabled = true;
+                placeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Payment...';
+            }
+
+            try {
+                await window.Checkout.placeOrder(shippingDetails);
+            } catch (err) {
+                this.showToast(err.message, "error");
+                if (placeBtn) {
+                    placeBtn.disabled = false;
+                    placeBtn.innerHTML = 'Place Order Securely <i class="fas fa-lock" style="margin-left: 8px;"></i>';
+                }
+            }
+        }
+
+        showToast(message, type = "success") {
+            if (!this.toastContainer) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            let iconHtml = '<i class="fas fa-info-circle toast-icon"></i>';
+            if (type === 'success') iconHtml = '<i class="fas fa-check-circle toast-icon"></i>';
+            if (type === 'error') iconHtml = '<i class="fas fa-times-circle toast-icon"></i>';
+            if (type === 'warning') iconHtml = '<i class="fas fa-exclamation-triangle toast-icon"></i>';
+
+            toast.innerHTML = `
+                ${iconHtml}
+                <div class="toast-message">${message}</div>
+                <button class="toast-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+            `;
+
+            this.toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'toast-slide-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                });
+            }, 3500);
+        }
+    }
+
+    // Bind instance
+    document.addEventListener('DOMContentLoaded', () => {
+        window.CheckoutPage = new CheckoutPageController();
+        window.CheckoutPage.init();
+        
+        // Wire app toast method mock so window.App.showToast works within Checkout script
+        window.App = {
+            showToast: (msg, type) => window.CheckoutPage.showToast(msg, type)
+        };
+    });
+</script>
+
+</body>
+</html>

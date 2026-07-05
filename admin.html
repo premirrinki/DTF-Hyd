@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Admin Panel | DTF Hyderabad Desk</title>
+    
+    <!-- External Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Style Sheets -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <!-- Supabase client JS library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            background-color: #f1f5f9;
+        }
+        .admin-wrapper {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffffff;
+            padding: 24px 32px;
+            border-radius: 20px;
+            border: 1px solid rgba(15, 23, 42, 0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+        }
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        @media (max-width: 992px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 576px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+        .stat-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(15, 23, 42, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.01);
+        }
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        .stat-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .stat-number {
+            font-family: var(--font-main);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .admin-main-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 30px;
+            align-items: flex-start;
+        }
+        @media (max-width: 1024px) {
+            .admin-main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .admin-card {
+            background: #ffffff;
+            border-radius: 20px;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .admin-card-title {
+            font-family: var(--font-main);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .admin-card-title span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .admin-card-title i {
+            color: var(--accent-color);
+        }
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.825rem;
+            text-align: left;
+        }
+        .admin-table th, .admin-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        .admin-table th {
+            background: #f8fafc;
+            color: var(--primary-color);
+            font-weight: 600;
+            font-family: var(--font-main);
+        }
+        .admin-table td {
+            color: #475569;
+        }
+        .admin-table tbody tr:hover {
+            background: #fdfaf2;
+        }
+        .badge-status {
+            padding: 4px 8px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-status.pending { background: #fef3c7; color: #d97706; }
+        .badge-status.production { background: #dbeafe; color: #2563eb; }
+        .badge-status.shipped { background: #e0f2fe; color: #0284c7; }
+        .badge-status.delivered { background: #dcfce7; color: #16a34a; }
+        .badge-status.cancelled { background: #fee2e2; color: #dc2626; }
+        
+        .status-select {
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            outline: none;
+            background: #ffffff;
+            cursor: pointer;
+        }
+        .btn-action {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #94a3b8;
+            transition: var(--transition-smooth);
+        }
+        .btn-action.delete:hover { color: #ef4444; }
+        .btn-action.hide-btn:hover { color: var(--accent-color); }
+        .btn-action.show-btn { color: var(--accent-color); }
+        .btn-action.show-btn:hover { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<header class="main-header" style="position: sticky; top: 0; background: #ffffff;">
+    <div class="header-container">
+        <a href="index.html" class="logo">DTF<span>Hyd</span></a>
+        <a href="index.html" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 8px;">
+            <i class="fas fa-home"></i> Return to Website
+        </a>
+    </div>
+</header>
+
+<div class="admin-wrapper">
+    <!-- Header Summary Block -->
+    <div class="admin-header">
+        <div>
+            <h1 style="font-family: var(--font-main); color: var(--primary-color); font-size: 1.6rem; font-weight: 700;">Merchant Administration Desk</h1>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Monitor checkout orders, manage stock lists, and configure database syncs.</p>
+        </div>
+        <div id="db-indicator" style="background: rgba(15, 23, 42, 0.05); color: var(--primary-color); padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-circle" style="color: #94a3b8; font-size: 0.6rem;"></i> Database: localStorage Cache
+        </div>
+    </div>
+
+    <!-- Telemetry Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
+            <div class="stat-meta">
+                <span class="stat-number" id="stat-total-orders">0</span>
+                <span class="stat-label">Orders Received</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;"><i class="fas fa-rupee-sign"></i></div>
+            <div class="stat-meta">
+                <span class="stat-number" id="stat-total-sales">₹0</span>
+                <span class="stat-label">Gross Revenue</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;"><i class="fas fa-users"></i></div>
+            <div class="stat-meta">
+                <span class="stat-number" id="stat-total-users">0</span>
+                <span class="stat-label">Registered Buyers</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;"><i class="fas fa-boxes"></i></div>
+            <div class="stat-meta">
+                <span class="stat-number" id="stat-total-products">0</span>
+                <span class="stat-label">Catalog Products</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace Grid -->
+    <div class="admin-main-grid">
+        <!-- Left Column: Checkout Orders Table -->
+        <div class="admin-card">
+            <div class="admin-card-title">
+                <span><i class="fas fa-list-alt"></i> Checkout Orders</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-receipt-action" style="padding: 6px 12px; font-size: 0.8rem; background: var(--primary-color); color: #fff; border-color: var(--primary-color);" onclick="window.AdminDesk.exportToCSV()">
+                        <i class="fas fa-file-excel"></i> Export Orders (CSV)
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="admin-table" id="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Order Details</th>
+                            <th>Consignee Info</th>
+                            <th>Items Ordered</th>
+                            <th>Tally</th>
+                            <th>Status Details</th>
+                            <th>Order Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- Filled dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Right Column: Add Catalog Item, Search, and Database Configs -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <!-- SQL Database Supabase config -->
+            <div class="admin-card">
+                <h2 class="admin-card-title"><span><i class="fas fa-database"></i> SQL Database Connection</span></h2>
+                <p style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+                    Integrate your shop with a serverless PostgreSQL SQL Database on Supabase. Sync all bulk checkout orders in real time.
+                </p>
+                <form id="supabase-config-form" onsubmit="window.AdminDesk.saveSupabaseConfig(event)" style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="form-group">
+                        <label>Supabase SQL API URL</label>
+                        <input type="url" id="db-url" placeholder="https://xyz.supabase.co">
+                    </div>
+                    <div class="form-group">
+                        <label>Supabase SQL Anon API Key</label>
+                        <input type="password" id="db-key" placeholder="eyJhbGciOiJ...">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="db-enable" style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+                        <label for="db-enable" style="font-size: 0.8rem; font-weight: 600; color: var(--primary-color); cursor: pointer;">Enable SQL Database Syncing</label>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <button type="submit" class="btn-auth-submit" style="margin: 0; padding: 10px; font-size: 0.85rem; flex: 1;">
+                            Save Settings
+                        </button>
+                        <button type="button" class="btn-logout" style="padding: 10px; font-size: 0.85rem; flex: 1.2;" onclick="window.AdminDesk.showSqlScript()">
+                            <i class="fas fa-code"></i> Show SQL Table Script
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Inject Product Form -->
+            <div class="admin-card">
+                <h2 class="admin-card-title"><span><i class="fas fa-plus-circle"></i> Inject Catalog Product</span></h2>
+                
+                <form id="add-product-form" onsubmit="window.AdminDesk.addProduct(event)" style="display: flex; flex-direction: column; gap: 14px;">
+                    <div class="form-group">
+                        <label>Product Title Name</label>
+                        <input type="text" id="prod-title" required placeholder="e.g. Neon Gang Sheet">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Category Lineup</label>
+                        <select id="prod-category" required>
+                            <option value="gang_sheet">DTF Gang Sheets</option>
+                            <option value="logo_prints">Logo Prints</option>
+                            <option value="custom_prints">Custom Prints</option>
+                            <option value="neon_prints">Neon Prints</option>
+                            <option value="sports_jerseys">Sports Jerseys</option>
+                            <option value="kids_wear">Kids Wear Collection</option>
+                        </select>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>Sale Price (₹)</label>
+                            <input type="number" id="prod-price" required placeholder="299">
+                        </div>
+                        <div class="form-group">
+                            <label>MRP Retail Price (₹)</label>
+                            <input type="number" id="prod-oldprice" required placeholder="499">
+                        </div>
+                    </div>
+                    
+                    <p style="font-size: 0.7rem; color: #b45309; font-weight: 500; margin-top: -8px;">
+                        * The discount tag will be calculated automatically based on old price and sale price.
+                    </p>
+
+                    <div class="form-group">
+                        <label>Initial Inventory Stock (Sheets)</label>
+                        <input type="number" id="prod-stock" value="100" required placeholder="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Thumbnail Image URL (Unsplash/Static)</label>
+                        <input type="url" id="prod-img" required value="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&width=400&auto=format&fit=crop" placeholder="https://...">
+                    </div>
+
+                    <button type="submit" class="btn-auth-submit" style="margin-top: 10px;">
+                        Add Product to Marketplace <i class="fas fa-plus"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Manage Catalog & Inventory (With Search box) -->
+            <div class="admin-card">
+                <h2 class="admin-card-title"><span><i class="fas fa-boxes"></i> Catalog & Inventory</span></h2>
+                
+                <div class="form-group" style="margin-bottom: 5px;">
+                    <label>Search Product Name</label>
+                    <input type="text" id="prod-search-input" oninput="window.AdminDesk.filterProducts(this.value)" placeholder="Type to search items...">
+                </div>
+
+                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Product Details</th>
+                                <th>Selling Price</th>
+                                <th>Inventory</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catalog-products-table-body">
+                            <!-- Filled dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SQL Script View Modal overlay -->
+<div class="modal-overlay" id="sql-modal">
+    <div class="modal-container" style="max-width: 500px; padding: 30px;">
+        <button class="modal-close" onclick="document.getElementById('sql-modal').classList.remove('active')"><i class="fas fa-times"></i></button>
+        <h3 style="font-family: var(--font-main); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">Supabase SQL Table Script</h3>
+        <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+            Log into your Supabase Dashboard, open the **SQL Editor**, paste the script below, and click **Run** to generate the PostgreSQL table:
+        </p>
+        <pre style="background: #0f172a; color: #38bdf8; padding: 15px; border-radius: 8px; font-size: 0.725rem; overflow-x: auto; font-family: Courier, monospace; user-select: all; cursor: pointer;" title="Click to copy">
+CREATE TABLE orders (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  order_id text UNIQUE NOT NULL,
+  order_date text NOT NULL,
+  customer_email text NOT NULL,
+  customer_name text NOT NULL,
+  customer_phone text NOT NULL,
+  shipping_address jsonb NOT NULL,
+  items_ordered jsonb NOT NULL,
+  subtotal numeric NOT NULL,
+  tax numeric NOT NULL,
+  shipping numeric NOT NULL,
+  total_amount numeric NOT NULL,
+  payment_method text NOT NULL,
+  payment_id text NOT NULL,
+  payment_status text NOT NULL,
+  status text NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+        </pre>
+        <button class="btn-auth-submit" style="width:100%; margin-top: 15px;" onclick="navigator.clipboard.writeText(document.querySelector('pre').innerText); alert('SQL script copied to clipboard!')">
+            Copy SQL Script
+        </button>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+
+<script>
+    class AdminDashboardController {
+        constructor() {
+            this.ordersTableBody = null;
+            this.catalogProductsTableBody = null;
+            this.activeSearchQuery = "";
+        }
+
+        async init() {
+            this.ordersTableBody = document.getElementById('orders-table-body');
+            this.catalogProductsTableBody = document.getElementById('catalog-products-table-body');
+            
+            // Render database indicators
+            this.renderDbIndicator();
+
+            // Load Supabase fields if active
+            this.loadSupabaseConfigPanel();
+
+            // Sync from Supabase SQL table if enabled, updates cache
+            await window.Store.fetchSupabaseOrders();
+
+            this.renderStats();
+            this.renderOrdersTable();
+            this.renderCatalogProductsTable();
+        }
+
+        renderDbIndicator() {
+            const ind = document.getElementById('db-indicator');
+            if (!ind) return;
+            if (window.Store.isSupabaseEnabled()) {
+                ind.innerHTML = `<i class="fas fa-circle" style="color: #22c55e; font-size: 0.6rem;"></i> Connected to Supabase SQL (PostgreSQL)`;
+            } else {
+                ind.innerHTML = `<i class="fas fa-circle" style="color: #94a3b8; font-size: 0.6rem;"></i> Database: localStorage Cache`;
+            }
+        }
+
+        loadSupabaseConfigPanel() {
+            const config = window.Store.getSupabaseConfig();
+            document.getElementById('db-url').value = config.url || "";
+            document.getElementById('db-key').value = config.anonKey || "";
+            document.getElementById('db-enable').checked = !!config.enabled;
+        }
+
+        saveSupabaseConfig(e) {
+            e.preventDefault();
+            const url = document.getElementById('db-url').value.trim();
+            const key = document.getElementById('db-key').value.trim();
+            const enabled = document.getElementById('db-enable').checked;
+
+            window.Store.saveSupabaseConfig(url, key, enabled);
+            alert("Database configurations saved! Syncing transactions...");
+            this.init();
+        }
+
+        showSqlScript() {
+            document.getElementById('sql-modal').classList.add('active');
+        }
+
+        renderStats() {
+            const allOrders = window.Store.getAllOrders();
+            const allProducts = window.Store.getAllProducts();
+            const registeredUsers = window.Store.getRegisteredUsers();
+
+            document.getElementById('stat-total-orders').innerText = allOrders.length;
+            
+            const totalRevenue = allOrders.reduce((sum, order) => {
+                if (!order.status.toLowerCase().includes('cancelled')) {
+                    return sum + order.total;
+                }
+                return sum;
+            }, 0);
+            document.getElementById('stat-total-sales').innerText = `₹${totalRevenue}`;
+            document.getElementById('stat-total-users').innerText = registeredUsers.length;
+            document.getElementById('stat-total-products').innerText = allProducts.length;
+        }
+
+        renderOrdersTable() {
+            if (!this.ordersTableBody) return;
+
+            const orders = window.Store.getAllOrders().slice().reverse();
+
+            if (orders.length === 0) {
+                this.ordersTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #94a3b8; padding: 40px 0;">
+                            <i class="fas fa-box-open" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
+                            No checkout orders synced yet.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            this.ordersTableBody.innerHTML = orders.map(ord => {
+                let itemsSummary = ord.items.map(item => {
+                    const sz = item.size === 'a3' ? 'A3' : (item.size === 'a4' ? 'A4' : 'Meter');
+                    return `${item.title} (${sz}) x ${item.quantity} = ₹${item.total}`;
+                }).join('<br>');
+
+                const statusLower = ord.status.toLowerCase();
+                let selectClass = 'pending';
+                if (statusLower.includes('production')) selectClass = 'production';
+                if (statusLower.includes('shipped')) selectClass = 'shipped';
+                if (statusLower.includes('paid') || statusLower.includes('delivered')) selectClass = 'delivered';
+                if (statusLower.includes('cancelled')) selectClass = 'cancelled';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong style="color: var(--primary-color);">#${ord.id}</strong><br>
+                            <small style="color: #64748b;">${ord.date}</small>
+                        </td>
+                        <td>
+                            <strong>${ord.shippingDetails.name}</strong><br>
+                            <small style="color: #64748b;">ph: ${ord.shippingDetails.phone}</small><br>
+                            <small style="color: #64748b; font-size: 0.725rem;">addr: ${ord.shippingDetails.address}, ${ord.shippingDetails.city} - ${ord.shippingDetails.pin}</small>
+                        </td>
+                        <td style="font-size: 0.75rem; line-height: 1.4; color: #475569;">
+                            ${itemsSummary}
+                        </td>
+                        <td>
+                            <strong style="color: var(--primary-color);">₹${ord.total}</strong><br>
+                            <small style="color: #94a3b8; font-size: 0.7rem;">GST (18%): ₹${ord.tax}</small>
+                        </td>
+                        <td>
+                            <span class="badge-status ${selectClass}">${ord.status}</span><br>
+                            <small style="color: #94a3b8; font-size: 0.7rem;">Gateway: ${ord.paymentMethod}</small>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <select class="status-select" onchange="window.AdminDesk.updateStatus('${ord.id}', this.value)">
+                                    <option value="Pending Confirmation" ${ord.status === 'Pending Confirmation' ? 'selected' : ''}>Pending</option>
+                                    <option value="In Production" ${ord.status === 'In Production' ? 'selected' : ''}>In Production</option>
+                                    <option value="Shipped" ${ord.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                                    <option value="Confirmed (Paid)" ${ord.status === 'Confirmed (Paid)' ? 'selected' : ''}>Delivered</option>
+                                    <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                                </select>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn-receipt-action" style="padding: 4px 8px; font-size: 0.7rem; background:#22c55e; color:#fff; border-color:#22c55e;" onclick="window.AdminDesk.pushToWhatsApp('${ord.id}')">
+                                        <i class="fab fa-whatsapp"></i> Push
+                                    </button>
+                                    <button class="btn-receipt-action" style="padding: 4px 8px; font-size: 0.7rem; background:#f1f5f9; color:var(--primary-color);" onclick="window.AdminDesk.printOrderInvoice('${ord.id}')">
+                                        <i class="fas fa-print"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        renderCatalogProductsTable() {
+            if (!this.catalogProductsTableBody) return;
+
+            // Get merged listing (config + custom)
+            let products = window.Store.getAllProducts();
+
+            // Apply search filters if typing
+            if (this.activeSearchQuery.trim() !== "") {
+                const query = this.activeSearchQuery.toLowerCase();
+                products = products.filter(p => p.title.toLowerCase().includes(query));
+            }
+
+            if (products.length === 0) {
+                this.catalogProductsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px 0;">
+                            No matching products found.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const customProducts = window.Store.getCustomProducts();
+            const disabledIds = window.Store.getDisabledProductIds();
+
+            this.catalogProductsTableBody.innerHTML = products.map(prod => {
+                const isCustom = customProducts.find(p => p.id === prod.id) !== undefined;
+                const isHidden = disabledIds.includes(prod.id);
+                
+                return `
+                    <tr style="${isHidden ? 'opacity: 0.5; background: #f8fafc;' : ''}">
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <img src="${prod.img}" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover;">
+                                <div>
+                                    <strong style="color: var(--primary-color);">${prod.title}</strong><br>
+                                    <span style="font-size: 0.7rem; background: ${isCustom ? '#f3e8ff' : '#e0f2fe'}; color: ${isCustom ? '#7e22ce' : '#0369a1'}; padding: 1px 4px; border-radius: 3px; font-weight: 600;">
+                                        ${isCustom ? 'Custom' : 'Standard'}
+                                    </span>
+                                    <span class="offer-price" style="font-size:0.75rem; margin-left: 5px;">${prod.discount}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong>₹${prod.price}</strong><br>
+                            <small style="color: #94a3b8; text-decoration: line-through;">₹${prod.oldPrice}</small>
+                        </td>
+                        <td>
+                            <span style="font-weight: 600; color: ${prod.stock === 0 ? '#ef4444' : 'var(--primary-color)'};">
+                                ${prod.stock === 0 ? 'Out of stock' : prod.stock + ' left'}
+                            </span>
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                                <button class="btn-action hide-btn" onclick="window.AdminDesk.toggleVisibility(${prod.id})" title="${isHidden ? 'Show in Store' : 'Hide from Store'}">
+                                    <i class="fas ${isHidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                </button>
+                                ${isCustom ? `
+                                    <button class="btn-action delete" onclick="window.AdminDesk.deleteProduct(${prod.id})" title="Delete Custom Item">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        filterProducts(val) {
+            this.activeSearchQuery = val;
+            this.renderCatalogProductsTable();
+        }
+
+        toggleVisibility(id) {
+            const hidden = window.Store.toggleProductVisibility(id);
+            this.init();
+        }
+
+        pushToWhatsApp(orderId) {
+            const orders = window.Store.getAllOrders();
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            let itemsText = '';
+            order.items.forEach(item => {
+                const sz = item.size === 'a3' ? 'A3 Size' : (item.size === 'a4' ? 'A4 Size' : 'Per Meter');
+                itemsText += `- *${item.title}* (${sz}) x ${item.quantity} = ₹${item.total}\n`;
+            });
+
+            const msgText = `*DTF Hyderabad - Order Summary Notification*\n\n` +
+                `*Order ID:* #${order.id}\n` +
+                `*Date:* ${order.date}\n\n` +
+                `*Customer:* ${order.shippingDetails.name} (${order.shippingDetails.phone})\n` +
+                `*Email:* ${order.shippingDetails.email}\n` +
+                `*Address:* ${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.state} - ${order.shippingDetails.pin}\n\n` +
+                `*Items Ordered:*\n${itemsText}\n` +
+                `*Subtotal:* ₹${order.subtotal}\n` +
+                `*GST Tax (18%):* ₹${order.tax}\n` +
+                `*Shipping:* ₹${order.shipping}\n` +
+                `*Grand Total:* *₹${order.total}*\n\n` +
+                `*Payment:* ${order.paymentMethod} (Status: ${order.paymentStatus})\n` +
+                `*Order Status:* ${order.status}`;
+
+            const encoded = encodeURIComponent(msgText);
+            const waNumber = window.StoreConfig.whatsappNumber || "919876543210";
+            window.open(`https://wa.me/${waNumber}?text=${encoded}`, '_blank');
+        }
+
+        printOrderInvoice(orderId) {
+            const orders = window.Store.getAllOrders();
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+            
+            const printFrame = document.createElement('div');
+            printFrame.style.position = 'fixed';
+            printFrame.style.top = '0';
+            printFrame.style.left = '0';
+            printFrame.style.width = '100vw';
+            printFrame.style.height = '100vh';
+            printFrame.style.background = '#ffffff';
+            printFrame.style.zIndex = '999999';
+            printFrame.style.padding = '40px';
+            printFrame.id = 'temp-print-invoice';
+
+            let itemsRows = order.items.map(item => {
+                const sz = item.size === 'a3' ? 'A3' : (item.size === 'a4' ? 'A4' : 'Meter');
+                return `
+                    <tr>
+                        <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; font-weight: 500;">${item.title}<br><small style="color: #64748b;">Size: ${sz}</small></td>
+                        <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">${item.quantity}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #f1f5f9;">₹${item.price}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">₹${item.total}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            printFrame.innerHTML = `
+                <div style="max-width: 650px; margin: 0 auto; font-family: 'Poppins', sans-serif; color: #0f172a; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 20px;">
+                        <div>
+                            <span style="font-size: 1.8rem; font-weight: 700;">DTF <span style="color:#f59e0b;">Hyderabad</span></span>
+                            <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Invoice Order: #${order.id}</p>
+                            <p style="font-size: 0.8rem; color: #64748b;">Dated: ${order.date}</p>
+                        </div>
+                        <div style="text-align: right; font-size: 0.8rem; color: #475569; line-height: 1.5;">
+                            <strong>DTFHyd Printing Facility</strong><br>
+                            Production Desk near Hi-Tech City,<br>
+                            Hyderabad, Telangana, India<br>
+                            support@dtfhyderabad.in
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 0.85rem; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 8px;">
+                        <strong style="font-size: 0.9rem; color:#0f172a;">Shipping Details:</strong><br>
+                        <div style="margin-top: 6px; line-height: 1.5; color:#334155;">
+                            <strong>${order.shippingDetails.name}</strong> | Ph: ${order.shippingDetails.phone}<br>
+                            ${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.state} - ${order.shippingDetails.pin}<br>
+                            Email: ${order.shippingDetails.email}
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 25px;">
+                        <thead>
+                            <tr style="background: #f1f5f9; color: #0f172a;">
+                                <th style="text-align: left; padding: 12px; border-bottom: 2px solid #cbd5e1; font-weight: 600;">Item Descriptions</th>
+                                <th style="text-align: left; padding: 12px; border-bottom: 2px solid #cbd5e1; font-weight: 600;">Qty</th>
+                                <th style="text-align: left; padding: 12px; border-bottom: 2px solid #cbd5e1; font-weight: 600;">Unit Rate</th>
+                                <th style="text-align: right; padding: 12px; border-bottom: 2px solid #cbd5e1; font-weight: 600;">Total (INR)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsRows}
+                        </tbody>
+                    </table>
+
+                    <div style="width: 250px; margin-left: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; text-align: right; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Subtotal:</span>
+                            <span>₹${order.subtotal}</span>
+                        </div>
+                        ${order.discount > 0 ? `
+                        <div style="display: flex; justify-content: space-between; color: #22c55e; font-weight: 500;">
+                            <span>Promo Discount:</span>
+                            <span>-₹${order.discount}</span>
+                        </div>` : ''}
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>GST Tax (18%):</span>
+                            <span>₹${order.tax}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Dispatched Shipping:</span>
+                            <span>₹${order.shipping}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 2px solid #0f172a; padding-top: 8px; font-size: 1.1rem; color: #0f172a;">
+                            <span>Grand Total:</span>
+                            <span>₹${order.total}</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 0.75rem; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 15px; color: #94a3b8;">
+                        Thank you for your business. For support, call +91 98765 43210.
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(printFrame);
+            window.print();
+            setTimeout(() => { printFrame.remove(); }, 1000);
+        }
+
+        exportToCSV() {
+            const orders = window.Store.getAllOrders();
+            if (orders.length === 0) {
+                alert("No checkout orders to export.");
+                return;
+            }
+
+            let csvContent = "\uFEFF"; // Add UTF-8 BOM
+            csvContent += "Order ID,Date,Customer Name,Email,Phone,Address,City,State,PIN,Items,Subtotal,Tax,Shipping,Total,Payment Method,Payment ID,Status\n";
+
+            orders.forEach(ord => {
+                const itemsStr = ord.items.map(item => `${item.title} (x${item.quantity})`).join(' | ');
+                const row = [
+                    ord.id,
+                    `"${ord.date}"`,
+                    `"${ord.shippingDetails.name}"`,
+                    `"${ord.shippingDetails.email}"`,
+                    `"${ord.shippingDetails.phone}"`,
+                    `"${ord.shippingDetails.address.replace(/"/g, '""')}"`,
+                    `"${ord.shippingDetails.city}"`,
+                    `"${ord.shippingDetails.state}"`,
+                    `"${ord.shippingDetails.pin}"`,
+                    `"${itemsStr}"`,
+                    ord.subtotal,
+                    ord.tax,
+                    ord.shipping,
+                    ord.total,
+                    `"${ord.paymentMethod}"`,
+                    `"${ord.paymentId}"`,
+                    `"${ord.status}"`
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `dtf_orders_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        addProduct(e) {
+            e.preventDefault();
+
+            const title = document.getElementById('prod-title').value;
+            const category = document.getElementById('prod-category').value;
+            const price = parseFloat(document.getElementById('prod-price').value) || 0;
+            const oldPrice = parseFloat(document.getElementById('prod-oldprice').value) || price || 0;
+            const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+            const img = document.getElementById('prod-img').value;
+
+            // Automatically calculate discount based on prices
+            const discountPct = oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
+            const discount = discountPct > 0 ? `${discountPct}% OFF` : 'SALE';
+
+            const newId = Date.now();
+
+            const newProduct = {
+                id: newId,
+                title,
+                category,
+                price,
+                oldPrice,
+                discount, // calculated automatically
+                stock,
+                img,
+                rating: 5.0,
+                reviews: 1,
+                isAvailable: true
+            };
+
+            const customProducts = window.Store.getCustomProducts();
+            customProducts.push(newProduct);
+            localStorage.setItem('dtf_custom_products', JSON.stringify(customProducts));
+
+            document.getElementById('add-product-form').reset();
+            this.init();
+            alert(`Product "${title}" successfully added with an automatic ${discount} tag!`);
+        }
+
+        deleteProduct(id) {
+            if (confirm("Are you sure you want to delete this custom product from your catalog?")) {
+                let customProducts = window.Store.getCustomProducts();
+                customProducts = customProducts.filter(p => p.id !== id);
+                localStorage.setItem('dtf_custom_products', JSON.stringify(customProducts));
+                
+                this.init();
+            }
+        }
+
+        updateStatus(orderId, nextStatus) {
+            window.Store.updateOrderStatus(orderId, nextStatus);
+            this.init();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.AdminDesk = new AdminDashboardController();
+        window.AdminDesk.init();
+    });
+</script>
+
+</body>
+</html>
